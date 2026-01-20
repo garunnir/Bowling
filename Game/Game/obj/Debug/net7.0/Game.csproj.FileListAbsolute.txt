@@ -1,0 +1,14 @@
+E:\work\GitHub\Pro\WorkTest\Game\Game\bin\Debug\net7.0\Game.exe
+E:\work\GitHub\Pro\WorkTest\Game\Game\bin\Debug\net7.0\Game.deps.json
+E:\work\GitHub\Pro\WorkTest\Game\Game\bin\Debug\net7.0\Game.runtimeconfig.json
+E:\work\GitHub\Pro\WorkTest\Game\Game\bin\Debug\net7.0\Game.dll
+E:\work\GitHub\Pro\WorkTest\Game\Game\bin\Debug\net7.0\Game.pdb
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.GeneratedMSBuildEditorConfig.editorconfig
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.AssemblyInfoInputs.cache
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.AssemblyInfo.cs
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.csproj.CoreCompileInputs.cache
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.dll
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\refint\Game.dll
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.pdb
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\Game.genruntimeconfig.cache
+E:\work\GitHub\Pro\WorkTest\Game\Game\obj\Debug\net7.0\ref\Game.dll
