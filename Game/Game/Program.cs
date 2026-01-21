@@ -15,9 +15,9 @@ class Program
         game.KnockDownPins(6);
         game.KnockDownPins(5);
         game.KnockDownPins(5);
-        game.KnockDownPins(10);
+        game.KnockDownPins(11);
         game.KnockDownPins(6);
-        game.KnockDownPins(2);
+        game.KnockDownPins(6);
         game.KnockDownPins(2);
         game.KnockDownPins(2);
         game.KnockDownPins(10);
@@ -53,33 +53,54 @@ public class Game
     private readonly IScoreCalculator _calculator;
     private readonly IScoreBoardRenderer _renderer;
 
+    private readonly ILogger _logger;
+
     // 1. Main(고정)용 생성자: 표준 부품 조립 (Constructor Chaining)
-    public Game() : this(new StandardScoreCalculator(), new ConsoleScoreRenderer())
+    public Game() : this(new StandardScoreCalculator(), new ConsoleScoreRenderer(), new ConsoleLogger())
     {
     }
 
     // 2. 테스트/확장용 생성자: 부품 교체 가능 (의존성 주입)
     // 예: 나중에 'NoGutterModeCalculator' 같은 걸 넣을 수 있음
-    public Game(IScoreCalculator calculator, IScoreBoardRenderer renderer)
+    public Game(IScoreCalculator calculator, IScoreBoardRenderer renderer, ILogger logger)
     {
         _calculator = calculator;
         _renderer = renderer;
+        _logger = logger;
     }
 
     public void KnockDownPins(int pins)
     {
-        // 1. 데이터 저장
+        // 1. 기본 유효성 검사
+        if (pins < 0 || pins > 10)
+        {
+            _logger.LogError($"[Input Error] Pins must be between 0 and 10. (Input: {pins})");
+            return;
+        }
+
+        // 2. 가상 실행 (Simulation/Dry-run)
+        var tempRolls = new List<int>(_rolls) { pins };
+
+        // 3. 결과 검증 (Validation)
+        var tempFrames = _calculator.Calculate(tempRolls);
+        var errorFrame = tempFrames.FirstOrDefault(f => !string.IsNullOrEmpty(f.ErrorMessage));
+
+        if (errorFrame != null)
+        {
+            // [Change] Console.WriteLine -> _logger.LogError 사용
+            // Game 클래스는 구체적인 출력 방식(Console)을 몰라도 됩니다.
+            _logger.LogError(errorFrame.ErrorMessage);
+            return;
+        }
+
+        // 4. 커밋 (Commit) & 렌더링
         _rolls.Add(pins);
-
-        // 2. 계산 위임 (Calculator야 계산해줘)
-        var scoreBoard = _calculator.Calculate(_rolls);
-
-        // 3. 출력 위임 (Renderer야 그려줘)
-        _renderer.Render(scoreBoard);
+        _renderer.Render(tempFrames);
 
         //계산기와 렌더가 데이터 커플링처럼 보이지만, 중간 객체는 중립적이므로, 서로 완전히 독립적이다. 중간 객체 포맷이 달라질 경우 둘 다 바꿔야 할 수 있음.
         //하지만 중간 계약이 바뀌는 경우는 거의 없으므로, 실질적으로는 독립적이라고 볼 수 있다.
         //필요할경우 맵퍼를 하나 더 둬서 중간 객체 포맷을 변환해줄 수도 있다.
+
 
     }
 }
@@ -105,8 +126,10 @@ public class ConsoleScoreRenderer : IScoreBoardRenderer
             if (i < frames.Count)
             {
                 var frame = frames[i];
-                rollView = GetRollView(frame);
+                // 에러 메시지가 있으면 "ERR" 표시, 아니면 정상 출력
+                rollView = string.IsNullOrEmpty(frame.ErrorMessage) ? GetRollView(frame) : frame.ErrorMessage;
                 scoreView = frame.CurrentFrameScore?.ToString() ?? "";
+                //에러 메시지가 있으면 점수는 표시하지 않는다. 아예 무시하고 다음 프레임으로 넘어간다.
             }
 
             // 2. 포맷팅 (요청하신 1:[] 스타일 적용)
@@ -236,7 +259,27 @@ public class StandardScoreCalculator : IScoreCalculator
             }
             else
             {
-                //계산이 문제가 있음을 알리는 코드
+                // [Error Handling]
+
+                // Case 1: 데이터 부족 (Waiting)
+                if (rollIndex + 1 >= rolls.Count)
+                {
+                    dto.Rolls.Add(rolls[rollIndex]);
+                    rollIndex++;
+                }
+                // Case 2: 데이터 오류 (Invalid Input - e.g., sum > 10)
+                else
+                {
+                    int invalidSum = rolls[rollIndex] + rolls[rollIndex + 1];
+
+                    // 계산기는 로거를 쓰지 않고, 데이터(DTO)에 사실만 기록합니다.
+                    dto.ErrorMessage = $"ERROR: Frame {frameNum} sum is {invalidSum} (Max 10). Input ignored.";
+
+                    dto.Rolls.Add(rolls[rollIndex]);
+                    dto.Rolls.Add(rolls[rollIndex + 1]);
+
+                    rollIndex += 2;
+                }
             }
 
             frames.Add(dto);
@@ -285,10 +328,9 @@ public class StandardScoreCalculator : IScoreCalculator
 public class ScoreFrameDTO
 {
     public int FrameNumber { get; set; }
-    
     public List<int> Rolls { get; } = new List<int>();
-    
     public int? CurrentFrameScore { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 // [전략 1] 출력 담당
@@ -303,7 +345,29 @@ public interface IScoreCalculator
 {
     List<ScoreFrameDTO> Calculate(IReadOnlyList<int> rolls);
 }
-public static class StringExtensions
+// [전략 3] 로깅 담당 (NEW - Reintroduced for Game Controller)
+public interface ILogger
+{
+    void LogError(string message);
+    void LogInfo(string message); // 필요 시 일반 메시지도 출력 가능
+}
+
+// 로거 구현체 (콘솔용)
+public class ConsoleLogger : ILogger
+{
+    public void LogError(string message)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"\n*** {message} ***\n");
+        Console.ResetColor();
+    }
+
+    public void LogInfo(string message)
+    {
+        Console.WriteLine(message);
+    }
+}
+    public static class StringExtensions
 {
     public static string Center(this string text, int totalWidth, char paddingChar = ' ')
     {
