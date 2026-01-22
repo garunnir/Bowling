@@ -10,23 +10,33 @@ class Program
 - 점수판에는 현재 투구까지의 기록과 각 프레임까지 확정된 총점이 보여야 합니다.*/
     public static void Main(string[] args)
     {
-        var game=new Game();
+        var game = new Game();
         game.KnockDownPins(4);
         game.KnockDownPins(6);
         game.KnockDownPins(5);
         game.KnockDownPins(5);
-        game.KnockDownPins(11);
+        game.KnockDownPins(0);
         game.KnockDownPins(6);
         game.KnockDownPins(6);
         game.KnockDownPins(2);
         game.KnockDownPins(2);
-        game.KnockDownPins(10);
+        game.KnockDownPins(8);
+        game.KnockDownPins(8);
+        game.KnockDownPins(8);
+        game.KnockDownPins(2);
         game.KnockDownPins(10);
         game.KnockDownPins(10);
         game.KnockDownPins(10);
 
+        game.KnockDownPins(10);
         game.KnockDownPins(5);
+        game.KnockDownPins(1);
+        game.KnockDownPins(1);
+        game.KnockDownPins(1);
         game.KnockDownPins(5);
+        game.KnockDownPins(10);
+        game.KnockDownPins(1);
+
 
         //몇개의 핀을 넘어트렸나만 정수로 입력받는다.
         //같은 메서드가 반복되는것으로 몇번 굴렸느냐가 고정인것을 알 수 있다.
@@ -46,7 +56,7 @@ class Program
  */
 public class Game
 {
-  
+
     private readonly List<int> _rolls = new List<int>();
 
     // 핵심 부품 2개
@@ -54,6 +64,9 @@ public class Game
     private readonly IScoreBoardRenderer _renderer;
 
     private readonly ILogger _logger;
+
+    //렌더 이슈때 재계산 하지 않도록 스냅샷 보관
+    private List<ScoreFrameDTO> _lastCalculatedFrames = new List<ScoreFrameDTO>();
 
     // 1. Main(고정)용 생성자: 표준 부품 조립 (Constructor Chaining)
     public Game() : this(new StandardScoreCalculator(), new ConsoleScoreRenderer(), new ConsoleLogger())
@@ -95,6 +108,7 @@ public class Game
 
         // 4. 커밋 (Commit) & 렌더링
         _rolls.Add(pins);
+        _lastCalculatedFrames = tempFrames;
         _renderer.Render(tempFrames);
 
         //계산기와 렌더가 데이터 커플링처럼 보이지만, 중간 객체는 중립적이므로, 서로 완전히 독립적이다. 중간 객체 포맷이 달라질 경우 둘 다 바꿔야 할 수 있음.
@@ -144,7 +158,7 @@ public class ConsoleScoreRenderer : IScoreBoardRenderer
             // Roll은 왼쪽 정렬(X    ), Score는 오른쪽 정렬(   30)이 보기에 좋음
             string rollContent;
             string scoreContent;
-            if (frameNum==10)
+            if (frameNum == 10)
             {
                 rollContent = $"[{rollView.PadRight(5)}]";
                 scoreContent = $"[{scoreView.PadLeft(5)}]";
@@ -155,8 +169,8 @@ public class ConsoleScoreRenderer : IScoreBoardRenderer
                 scoreContent = $"[{scoreView.PadLeft(3)}]";
             }
 
-            
-            
+
+
 
             sbRoll.Append($"{topPrefix}{rollContent} ");
             sbScore.Append($"{botPrefix}{scoreContent} ");
@@ -170,31 +184,45 @@ public class ConsoleScoreRenderer : IScoreBoardRenderer
 
     private string GetRollView(ScoreFrameDTO frame)
     {
-        // 10프레임 예외 처리: 스트라이크가 나와도 계속 던질 수 있으므로 다 보여줌
-        if (frame.FrameNumber == 10)
+        // 숫자 -> 문자 변환 (X, -, 숫자)
+        string[] rollsTmp = new string[frame.Rolls.Count];
+        for (int i = 0; i < rollsTmp.Length; i++)
         {
-            //frame.Rolls의 각 투구 결과를 변환
-            return string.Join(",", frame.Rolls.ConvertAll(roll =>
-            {
-                if (roll == 10) return "X";
-                return roll.ToString();
-            }));
+            rollsTmp[i] = ConvertNumSymbol(frame.Rolls[i]);
         }
 
-        // [View Logic]
-        // 1. 스트라이크 확인
-        bool isStrike = frame.Rolls.Count >= 1 && frame.Rolls[0] == 10;
-        if (isStrike) return " X ";
+        // 스페어 확인 및 덮어쓰기.
+        bool isSpare = frame.Rolls.Count >= 2 && (frame.Rolls[0] + frame.Rolls[1] == 10);
 
-        // 2. 스페어 확인
-        bool isSpare = frame.Rolls.Count == 2 && (frame.Rolls[0] + frame.Rolls[1] == 10);
-        if (isSpare) return $"{frame.Rolls[0]},/";
+        if (isSpare)
+        {
+            rollsTmp[1] = "/";
+        }
 
-        // 3. 일반 투구
-        if (frame.Rolls.Count == 2) return $"{frame.Rolls[0]},{frame.Rolls[1]}";
-        if (frame.Rolls.Count == 1) return $"{frame.Rolls[0]}";
+        // 일반 출력 (콤마 구분)
+        if (frame.Rolls.Count > 1)
+            return string.Join(",", rollsTmp);
+
+        if (frame.Rolls.Count == 1)
+        {
+            if (frame.Rolls[0]==10&&frame.FrameNumber!=10)//스트라이크이고 일반프레임이면 가운데
+            {
+                return " X ";
+            }
+            // 투구가 하나만 있을 때 뒤에 콤마를 붙일지 여부 (예: "8,")
+            return $"{rollsTmp[0]},";
+        }
+        
 
         return " ";
+    }
+
+    // [New Helper] 누락되었던 심볼 변환 메서드 추가
+    private string ConvertNumSymbol(int pins)
+    {
+        if (pins == 10) return "X";
+        if (pins == 0) return "-";
+        return pins.ToString();
     }
 }
 // 표준 볼링 점수 계산기
@@ -204,115 +232,155 @@ public class StandardScoreCalculator : IScoreCalculator
     private const int MaxFrames = 10;
     private const int MaxPins = 10;
 
-    public List<ScoreFrameDTO> Calculate(IReadOnlyList<int> rolls)//받은 정보를 변경해서 안된다는 약속을 명확히 하기 위해 IReadOnlyList를 사용
+    public List<ScoreFrameDTO> Calculate(IReadOnlyList<int> rolls)
     {
-        //rolls는 각 프레임에 규칙에 따라 배분되어야 하므로 프레임넘버에 따라서 들어가지 않는다.
         var frames = new List<ScoreFrameDTO>();
         int rollIndex = 0;
-        int runningScore = 0; // 누적 점수
+        int runningScore = 0;
 
-        for (int frameNum = 1; frameNum <= MaxFrames; frameNum++)//프레임은 10까지 이지만 변경 가능도 염두에 두자 이 프레임으로 의도를 보기 좋게 표현한 AI의 방식은 채용하였음.
+        // [Phase 1] 1~9 프레임 처리
+        for (int frameNum = 1; frameNum < MaxFrames; frameNum++)
         {
-            // 더 이상 계산할 투구 기록이 없으면 중단
-            if (rollIndex >= rolls.Count) break;
+            var dto = new ScoreFrameDTO { FrameNumber = frameNum };
 
-            var dto = new ScoreFrameDTO { FrameNumber = frameNum };//프레임 객체 생성 및 독립적 아이덴티티를 확보.
-
-            if (IsStrike(rolls, rollIndex))
+            if (rollIndex >= rolls.Count)
             {
-                // [Logic 1] 점수 계산 (Calculation)
-                if (CanCalculateStrike(rolls, rollIndex))
+                frames.Add(dto);
+                continue;
+            }
+
+            // [New Strategy] 남은 핀(RemainPins)을 추적하여 로직 단순화
+            int remainPins = MaxPins;
+            int firstRoll = rolls[rollIndex];
+
+            // 1. 첫 번째 투구 처리
+            if (firstRoll > remainPins) // 에러: 10개보다 많이 쓰러뜨림
+            {
+                dto.Rolls.Add(firstRoll);
+                dto.ErrorMessage = $"ERROR: Frame {frameNum} roll is {firstRoll}. Input ignored.";
+                frames.Add(dto);
+                rollIndex++; // 에러 데이터 소비
+                continue;
+            }
+
+            dto.Rolls.Add(firstRoll);
+            remainPins -= firstRoll;
+
+            // Case A: 스트라이크 (첫 투구에 핀 0개 됨)
+            if (remainPins == 0)
+            {
+                // 스트라이크 점수 계산 (다음 2개 공 필요)
+                if (rollIndex + 2 < rolls.Count)
                 {
-                    int score = 10 + GetNextTwoRollsScore(rolls, rollIndex);
-                    runningScore += score;
+                    runningScore += 10 + GetNextTwoRollsScore(rolls, rollIndex);
                     dto.CurrentFrameScore = runningScore;
                 }
-
-                // [Logic 2] 프레임 구성 및 인덱스 이동 (Construction & Navigation)
-                dto.Rolls.Add(MaxPins);
-                rollIndex += dto.Rolls.Count;
+                rollIndex++; // 스트라이크는 공 1개 소비
             }
-            else if (IsSpare(rolls, rollIndex))
-            {
-                // [Logic 1] 점수 계산
-                if (CanCalculateSpare(rolls, rollIndex))
-                {
-                    int score = 10 + GetNextRollScore(rolls, rollIndex + 1);
-                    runningScore += score;
-                    dto.CurrentFrameScore = runningScore;
-                }
-
-                // [Logic 2] 프레임 구성 및 인덱스 이동
-                dto.Rolls.Add(rolls[rollIndex]);
-                dto.Rolls.Add(rolls[rollIndex + 1]);
-                rollIndex += dto.Rolls.Count;
-            }
-            else if(IsOpen(rolls, rollIndex))
-            {
-                // [Logic 1] 점수 계산
-                runningScore += (rolls[rollIndex] + rolls[rollIndex + 1]);
-                dto.CurrentFrameScore = runningScore;
-                // [Logic 2] 프레임 구성 및 인덱스 이동
-                dto.Rolls.Add(rolls[rollIndex]);
-                dto.Rolls.Add(rolls[rollIndex + 1]);
-                rollIndex += dto.Rolls.Count;
-            }
+            // Case B: 일반 투구 (핀이 남았으므로 2번째 공 필요)
             else
             {
-                // [Error Handling]
-
-                // Case 1: 데이터 부족 (Waiting)
+                // 데이터 대기 (2구 없음)
                 if (rollIndex + 1 >= rolls.Count)
                 {
-                    dto.Rolls.Add(rolls[rollIndex]);
+                    // 현재 상태로 프레임 저장하고 대기
+                    frames.Add(dto);
                     rollIndex++;
+                    break;
                 }
-                // Case 2: 데이터 오류 (Invalid Input - e.g., sum > 10)
-                else
+
+                int secondRoll = rolls[rollIndex + 1];
+
+                // 에러 체크: 남은 핀보다 많이 쓰러뜨림 (합계 > 10)
+                if (secondRoll > remainPins)
                 {
-                    int invalidSum = rolls[rollIndex] + rolls[rollIndex + 1];
-
-                    // 계산기는 로거를 쓰지 않고, 데이터(DTO)에 사실만 기록합니다.
-                    dto.ErrorMessage = $"ERROR: Frame {frameNum} sum is {invalidSum} (Max 10). Input ignored.";
-
-                    dto.Rolls.Add(rolls[rollIndex]);
-                    dto.Rolls.Add(rolls[rollIndex + 1]);
-
-                    rollIndex += 2;
+                    dto.Rolls.Add(secondRoll);
+                    dto.ErrorMessage = $"ERROR: Frame {frameNum} sum is {firstRoll + secondRoll}. Input ignored.";
+                    frames.Add(dto);
+                    rollIndex += 2; // 에러 데이터 소비
+                    continue;
                 }
+
+                dto.Rolls.Add(secondRoll);
+                remainPins -= secondRoll;
+
+                // 점수 계산
+                if (remainPins == 0) // 스페어 (2구 합쳐서 0개 됨)
+                {
+                    if (rollIndex + 2 < rolls.Count) // 보너스 공(1개) 필요
+                    {
+                        runningScore += 10 + GetNextRollScore(rolls, rollIndex + 1);
+                        dto.CurrentFrameScore = runningScore;
+                    }
+                }
+                else // 오픈 (핀이 남음)
+                {
+                    runningScore += (firstRoll + secondRoll);
+                    dto.CurrentFrameScore = runningScore;
+                }
+
+                rollIndex += 2; // 일반 프레임은 공 2개 소비
             }
 
             frames.Add(dto);
         }
 
+        // [Phase 2] 10프레임 처리 (핀 리셋 로직 적용)
+        if (rollIndex < rolls.Count)
+        {
+            var lastFrame = new ScoreFrameDTO { FrameNumber = MaxFrames };
+
+            // 10프레임은 핀 상태를 계속 추적해야 함 (스트라이크/스페어 시 리셋)
+            int currentPins = MaxPins;
+
+            // 최대 3번의 기회
+            for (int i = 0; i < 3; i++)
+            {
+                // 데이터 없으면 중단
+                if (rollIndex >= rolls.Count) break;
+
+                int roll = rolls[rollIndex];
+
+                // 에러 체크: 현재 세워진 핀보다 많이 쓰러뜨릴 수 없음
+                if (roll > currentPins)
+                {
+                    lastFrame.ErrorMessage = $"ERROR: Frame 10 roll {i + 1} is {roll} (Remain: {currentPins}). Input ignored.";
+                    lastFrame.Rolls.Add(roll); // 에러 데이터도 보여주기 위해 추가
+                    rollIndex++; // 소비 후 중단
+                    break;
+                }
+
+                lastFrame.Rolls.Add(roll);
+                currentPins -= roll;
+                rollIndex++;
+
+                // [Core Logic] 핀이 다 쓰러졌으면(0), 핀을 다시 세운다(Reset) -> 이것이 보너스 기회의 근거
+                // 3번째 투구 직전이라면, 이 리셋이 3구를 던질 수 있게 해주는 논리적 근거가 됨
+                if (currentPins == 0)
+                {
+                    currentPins = MaxPins;
+                }
+                else
+                {
+                    // 핀이 남았는데, 2번째 투구였다면? -> 게임 종료 (오픈)
+                    // (즉, i==1(2구) 시점에 핀이 0이 아니면 루프 종료)
+                    if (i == 1) break;
+                }
+            }
+
+            // 점수 계산 (투구 완료 여부 확인)
+            if (IsFinalFrameFinished(lastFrame.Rolls))
+            {
+                runningScore += lastFrame.Rolls.Sum();
+                lastFrame.CurrentFrameScore = runningScore;
+            }
+
+            frames.Add(lastFrame);
+        }
+
         return frames;
     }
     // --- Helper Methods (규칙이 바뀌면 여기만 고치면 됩니다) ---
-
-    // 헬퍼 메서드들도 모두 IReadOnlyList를 받도록 수정
-    private bool IsStrike(IReadOnlyList<int> rolls, int index)
-    {
-        return index < rolls.Count && rolls[index] == MaxPins;
-    }
-
-    private bool IsSpare(IReadOnlyList<int> rolls, int index)
-    {
-        return index + 1 < rolls.Count && (rolls[index] + rolls[index + 1] == MaxPins);
-    }
-    private bool IsOpen(IReadOnlyList<int> rolls, int index)
-    {
-        return index + 1 < rolls.Count && (rolls[index] + rolls[index + 1] < MaxPins);
-    }
-
-    private bool CanCalculateStrike(IReadOnlyList<int> rolls, int index)
-    {
-        return index + 2 < rolls.Count;
-    }
-
-    private bool CanCalculateSpare(IReadOnlyList<int> rolls, int index)
-    {
-        return index + 2 < rolls.Count;
-    }
 
     private int GetNextTwoRollsScore(IReadOnlyList<int> rolls, int index)
     {
@@ -322,6 +390,18 @@ public class StandardScoreCalculator : IScoreCalculator
     private int GetNextRollScore(IReadOnlyList<int> rolls, int currentIndex)
     {
         return rolls[currentIndex + 1];
+    }
+
+    // 10프레임 종료 여부 판단
+    private bool IsFinalFrameFinished(List<int> rolls)
+    {
+        if (rolls.Count == 3) return true; // 3구 던졌으면 끝
+        if (rolls.Count == 2)
+        {
+            // 2구 합이 10 미만(오픈)이면 끝, 10 이상(스트라이크/스페어)이면 3구 필요
+            return (rolls[0] + rolls[1] < 10);
+        }
+        return false; // 0~1구는 미종료
     }
 }
 //각 프레임을 구분짓기
@@ -367,7 +447,7 @@ public class ConsoleLogger : ILogger
         Console.WriteLine(message);
     }
 }
-    public static class StringExtensions
+public static class StringExtensions
 {
     public static string Center(this string text, int totalWidth, char paddingChar = ' ')
     {
