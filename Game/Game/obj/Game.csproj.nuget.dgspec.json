@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "E:\\work\\GitHub\\Pro\\WorkTest\\Game\\Game\\Game.csproj": {}
+    "Z:\\Work\\Project\\WorkTest\\Game\\Game\\Game.csproj": {}
   },
   "projects": {
-    "E:\\work\\GitHub\\Pro\\WorkTest\\Game\\Game\\Game.csproj": {
+    "Z:\\Work\\Project\\WorkTest\\Game\\Game\\Game.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\work\\GitHub\\Pro\\WorkTest\\Game\\Game\\Game.csproj",
+        "projectUniqueName": "Z:\\Work\\Project\\WorkTest\\Game\\Game\\Game.csproj",
         "projectName": "Game",
-        "projectPath": "E:\\work\\GitHub\\Pro\\WorkTest\\Game\\Game\\Game.csproj",
-        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "E:\\work\\GitHub\\Pro\\WorkTest\\Game\\Game\\obj\\",
+        "projectPath": "Z:\\Work\\Project\\WorkTest\\Game\\Game\\Game.csproj",
+        "packagesPath": "C:\\Users\\lutep\\.nuget\\packages\\",
+        "outputPath": "Z:\\Work\\Project\\WorkTest\\Game\\Game\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+          "Z:\\Work\\vs\\sdk\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\lutep\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -65,7 +65,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.310/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
