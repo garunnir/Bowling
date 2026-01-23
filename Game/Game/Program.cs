@@ -107,138 +107,7 @@ public class Game
     }
 }
 
-/// <summary>
-/// 뷰와 모델 사이에서 데이터를 전달하는 DTO(Data Transfer Object)입니다.
-/// 로직을 포함하지 않는 순수 데이터 컨테이너입니다.
-/// </summary>
-public class ScoreFrameDTO
-{
-    public int FrameNumber { get; set; }
-
-    // 렌더러가 프레임 성격을 추측하지 않도록 타입을 명시 (Normal/Final)
-    public FrameType Type { get; set; } = FrameType.Normal;
-
-    // 읽기 전용으로 노출하여 데이터 무결성 보호 의도 전달
-    public List<int> Rolls { get; } = new List<int>();
-
-    public int? CurrentFrameScore { get; set; }
-    public string? ErrorMessage { get; set; }
-
-    // 디버깅 편의를 위한 문자열 변환 오버라이드
-    public override string ToString()
-    {
-        string rollsStr = string.Join(",", Rolls);
-        string scoreStr = CurrentFrameScore.HasValue ? CurrentFrameScore.Value.ToString() : "null";
-        string typeStr = Type == FrameType.Final ? "Final" : "Normal";
-        string status = string.IsNullOrEmpty(ErrorMessage) ? "Valid" : $"Error({ErrorMessage})";
-
-        return $"F{FrameNumber:00} [{typeStr}] Rolls:[{rollsStr}] Score:{scoreStr} ({status})";
-    }
-}
-
-/// <summary>
-/// 콘솔 환경에 점수판을 출력하는 뷰(View) 구현체입니다.
-/// </summary>
-public class ConsoleScoreRenderer : IScoreBoardRenderer
-{
-    private readonly int _totalFrames;
-
-    public ConsoleScoreRenderer(int totalFrames = 10)
-    {
-        _totalFrames = totalFrames;
-    }
-
-    public void Render(List<ScoreFrameDTO> frames)
-    {
-        StringBuilder sbRoll = new StringBuilder();
-        StringBuilder sbScore = new StringBuilder();
-
-        // 설정된 총 프레임 수만큼 반복하여 빈 공간까지 포함한 전체 틀을 그립니다.
-        for (int i = 0; i < _totalFrames; i++)
-        {
-            int frameNum = i + 1;
-            string rollView = "";
-            string scoreView = "";
-
-            // 아직 생성되지 않은 미래의 프레임 타입 추론 (마지막만 Final)
-            FrameType currentType = (frameNum == _totalFrames) ? FrameType.Final : FrameType.Normal;
-
-            if (i < frames.Count)
-            {
-                var frame = frames[i];
-                // 에러 발생 시 상세 내용은 로그로, 화면엔 "ERR"로 간략 표시
-                rollView = string.IsNullOrEmpty(frame.ErrorMessage) ? GetRollView(frame) : "ERR";
-                scoreView = frame.CurrentFrameScore?.ToString() ?? "";
-
-                // 실제 데이터가 있다면 그 타입을 따름 (Fact over Guess)
-                currentType = frame.Type;
-            }
-
-            // 프레임 번호 정렬을 위한 라벨 생성 ("1:" vs "10:")
-            string topPrefix = $"{frameNum}:";
-            // 라벨 길이만큼 공백을 채워 점수 줄의 수직 정렬을 맞춤
-            string botPrefix = new string(' ', topPrefix.Length);
-
-            // 프레임 타입에 따라 칸 너비를 동적으로 조정
-            // Final: 3구("X X X") 고려 5칸 / Normal: 2구("9 /") 고려 3칸
-            int width = (currentType == FrameType.Final) ? 5 : 3;
-
-            string rollContent = $"[{rollView.PadRight(width)}]";
-            string scoreContent = $"[{scoreView.PadLeft(width)}]";
-
-            sbRoll.Append($"{topPrefix}{rollContent} ");
-            sbScore.Append($"{botPrefix}{scoreContent} ");
-        }
-
-        Console.WriteLine("===============================================================================");
-        Console.WriteLine(sbRoll.ToString());
-        Console.WriteLine(sbScore.ToString());
-        Console.WriteLine("===============================================================================");
-    }
-
-    // 내부 데이터를 볼링 표기법(X, /, -)으로 변환
-    private string GetRollView(ScoreFrameDTO frame)
-    {
-        string[] displaySymbols = new string[frame.Rolls.Count];
-        for (int i = 0; i < displaySymbols.Length; i++)
-        {
-            displaySymbols[i] = ConvertNumSymbol(frame.Rolls[i]);
-        }
-
-        // 스페어 처리: 두 번째 투구로 10개를 채웠다면 '/'로 덮어쓰기
-        bool isSpare = frame.Rolls.Count >= 2 && (frame.Rolls[0] + frame.Rolls[1] == 10);
-
-        if (isSpare)
-        {
-            displaySymbols[1] = "/";
-        }
-
-        if (frame.Rolls.Count > 1)
-            return string.Join(",", displaySymbols);
-
-        if (frame.Rolls.Count == 1)
-        {
-            // 일반 프레임 스트라이크는 가운데 정렬 (" X ")
-            if (frame.Rolls[0] == 10 && frame.Type == FrameType.Normal)
-            {
-                return " X ";
-            }
-            // 투구가 하나일 때는 콤마를 붙여 대기 상태 암시 ("8,")
-            return $"{displaySymbols[0]},";
-        }
-
-        return " ";
-    }
-
-    // 0점은 거터(-)로, 10점은 스트라이크(X)로 변환
-    private string ConvertNumSymbol(int pins)
-    {
-        if (pins == 10) return "X";
-        if (pins == 0) return "-";
-        return pins.ToString();
-    }
-}
-
+#region 기본 구현체
 /// <summary>
 /// 표준 볼링 규칙을 구현한 순수 로직 계산기입니다.
 /// </summary>
@@ -247,7 +116,7 @@ public class StandardScoreCalculator : IScoreCalculator
     private readonly int _totalFrames;
     private const int MaxPins = 10;
 
-    public StandardScoreCalculator(int totalFrames = 10)
+    public StandardScoreCalculator(int totalFrames = 12)
     {
         _totalFrames = totalFrames;
     }
@@ -486,13 +355,124 @@ public class StandardScoreCalculator : IScoreCalculator
         return false; // 0~1구 -> 미종료
     }
 }
-
-public enum FrameType
+/// <summary>
+/// 콘솔 환경에 점수판을 출력하는 뷰(View) 구현체입니다.
+/// </summary>
+public class ConsoleScoreRenderer : IScoreBoardRenderer
 {
-    Normal,
-    Final
-}
+    private readonly int _totalFrames;
 
+    public ConsoleScoreRenderer(int totalFrames = 10)
+    {
+        _totalFrames = totalFrames;
+    }
+
+    public void Render(List<ScoreFrameDTO> frames)
+    {
+        StringBuilder sbRoll = new StringBuilder();
+        StringBuilder sbScore = new StringBuilder();
+
+        // 설정된 총 프레임 수만큼 반복하여 빈 공간까지 포함한 전체 틀을 그립니다.
+        for (int i = 0; i < _totalFrames; i++)
+        {
+            int frameNum = i + 1;
+            string rollView = "";
+            string scoreView = "";
+
+            // 아직 생성되지 않은 미래의 프레임 타입 추론 (마지막만 Final)
+            FrameType currentType = (frameNum == _totalFrames) ? FrameType.Final : FrameType.Normal;
+
+            if (i < frames.Count)
+            {
+                var frame = frames[i];
+                // 에러 발생 시 상세 내용은 로그로, 화면엔 "ERR"로 간략 표시
+                rollView = string.IsNullOrEmpty(frame.ErrorMessage) ? GetRollView(frame) : "ERR";
+                scoreView = frame.CurrentFrameScore?.ToString() ?? "";
+
+                // 실제 데이터가 있다면 그 타입을 따름 (Fact over Guess)
+                currentType = frame.Type;
+            }
+
+            // 프레임 번호 정렬을 위한 라벨 생성 ("1:" vs "10:")
+            string topPrefix = $"{frameNum}:";
+            // 라벨 길이만큼 공백을 채워 점수 줄의 수직 정렬을 맞춤
+            string botPrefix = new string(' ', topPrefix.Length);
+
+            // 프레임 타입에 따라 칸 너비를 동적으로 조정
+            // Final: 3구("X X X") 고려 5칸 / Normal: 2구("9 /") 고려 3칸
+            int width = (currentType == FrameType.Final) ? 5 : 3;
+
+            string rollContent = $"[{rollView.PadRight(width)}]";
+            string scoreContent = $"[{scoreView.PadLeft(width)}]";
+
+            sbRoll.Append($"{topPrefix}{rollContent} ");
+            sbScore.Append($"{botPrefix}{scoreContent} ");
+        }
+
+        Console.WriteLine(sbRoll.ToString());
+        Console.WriteLine(sbScore.ToString());
+        Console.WriteLine();
+    }
+
+    // 내부 데이터를 볼링 표기법(X, /, -)으로 변환
+    private string GetRollView(ScoreFrameDTO frame)
+    {
+        string[] displaySymbols = new string[frame.Rolls.Count];
+        for (int i = 0; i < displaySymbols.Length; i++)
+        {
+            displaySymbols[i] = ConvertNumSymbol(frame.Rolls[i]);
+        }
+
+        // 스페어 처리: 두 번째 투구로 10개를 채웠다면 '/'로 덮어쓰기
+        bool isSpare = frame.Rolls.Count >= 2 && (frame.Rolls[0] + frame.Rolls[1] == 10);
+
+        if (isSpare)
+        {
+            displaySymbols[1] = "/";
+        }
+
+        if (frame.Rolls.Count > 1)
+            return string.Join(",", displaySymbols);
+
+        if (frame.Rolls.Count == 1)
+        {
+            // 일반 프레임 스트라이크는 가운데 정렬 (" X ")
+            if (frame.Rolls[0] == 10 && frame.Type == FrameType.Normal)
+            {
+                return " X ";
+            }
+            // 투구가 하나일 때는 콤마를 붙여 대기 상태 암시 ("8,")
+            return $"{displaySymbols[0]},";
+        }
+
+        return " ";
+    }
+
+    // 0점은 거터(-)로, 10점은 스트라이크(X)로 변환
+    private string ConvertNumSymbol(int pins)
+    {
+        if (pins == 10) return "X";
+        if (pins == 0) return "-";
+        return pins.ToString();
+    }
+}
+public class ConsoleLogger : ILogger
+{
+    public void LogError(string message)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine($"\n*** {message} ***\n");
+        Console.ResetColor();
+    }
+
+    public void LogInfo(string message)
+    {
+        Console.WriteLine(message);
+    }
+}
+#endregion
+
+#region 인터페이스 정의
 // 모듈 간 결합도를 낮추기 위한 인터페이스 정의
 public interface IScoreBoardRenderer
 {
@@ -509,18 +489,42 @@ public interface ILogger
     void LogError(string message);
     void LogInfo(string message);
 }
+#endregion
 
-public class ConsoleLogger : ILogger
+
+
+#region DTO 및 지원 타입 정의
+public enum FrameType
 {
-    public void LogError(string message)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"\n*** {message} ***\n");
-        Console.ResetColor();
-    }
+    Normal,
+    Final
+}
+/// <summary>
+/// 뷰와 모델 사이에서 데이터를 전달하는 DTO(Data Transfer Object)입니다.
+/// 로직을 포함하지 않는 순수 데이터 컨테이너입니다.
+/// </summary>
+public class ScoreFrameDTO
+{
+    public int FrameNumber { get; set; }
 
-    public void LogInfo(string message)
+    // 렌더러가 프레임 성격을 추측하지 않도록 타입을 명시 (Normal/Final)
+    public FrameType Type { get; set; } = FrameType.Normal;
+
+    // 읽기 전용으로 노출하여 데이터 무결성 보호 의도 전달
+    public List<int> Rolls { get; } = new List<int>();
+
+    public int? CurrentFrameScore { get; set; }
+    public string? ErrorMessage { get; set; }
+
+    // 디버깅 편의를 위한 문자열 변환 오버라이드
+    public override string ToString()
     {
-        Console.WriteLine(message);
+        string rollsStr = string.Join(",", Rolls);
+        string scoreStr = CurrentFrameScore.HasValue ? CurrentFrameScore.Value.ToString() : "null";
+        string typeStr = Type == FrameType.Final ? "Final" : "Normal";
+        string status = string.IsNullOrEmpty(ErrorMessage) ? "Valid" : $"Error({ErrorMessage})";
+
+        return $"F{FrameNumber:00} [{typeStr}] Rolls:[{rollsStr}] Score:{scoreStr} ({status})";
     }
 }
+#endregion
