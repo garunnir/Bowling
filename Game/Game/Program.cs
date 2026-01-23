@@ -423,25 +423,42 @@ public class ConsoleScoreRenderer : IScoreBoardRenderer
             displaySymbols[i] = ConvertNumSymbol(frame.Rolls[i]);
         }
 
-        // 스페어 처리: 두 번째 투구로 10개를 채웠다면 '/'로 덮어쓰기
-        bool isSpare = frame.Rolls.Count >= 2 && (frame.Rolls[0] + frame.Rolls[1] == 10);
+        // [Logic 1] 일반적인 스페어 (1구 + 2구 = 10)
+        // 단, 1구가 스트라이크면 스페어가 성립할 수 없음 (10+0=10은 스페어가 아님)
+        bool isStandardSpare = frame.Rolls.Count >= 2 &&
+                               frame.Rolls[0] < 10 &&
+                               (frame.Rolls[0] + frame.Rolls[1] == 10);
 
-        if (isSpare)
+        if (isStandardSpare)
         {
             displaySymbols[1] = "/";
         }
 
+        // [Logic 2] 10프레임 특수 스페어 (2구 + 3구 = 10)
+        // 조건: 3구가 있고, 1구가 스트라이크이며, 2구가 스트라이크가 아니고, 2+3구가 10인 경우
+        // 예: X, 5, 5 -> X, 5, /
+        if (frame.Type == FrameType.Final && frame.Rolls.Count == 3)
+        {
+            // 1구가 10이고, 2구가 10이 아닐 때 (X X X 나 X X 9 는 제외)
+            if (frame.Rolls[0] == 10 && frame.Rolls[1] < 10)
+            {
+                if (frame.Rolls[1] + frame.Rolls[2] == 10)
+                {
+                    displaySymbols[2] = "/";
+                }
+            }
+        }
+
+        // 출력 조합 (콤마 구분)
         if (frame.Rolls.Count > 1)
             return string.Join(",", displaySymbols);
 
         if (frame.Rolls.Count == 1)
         {
-            // 일반 프레임 스트라이크는 가운데 정렬 (" X ")
             if (frame.Rolls[0] == 10 && frame.Type == FrameType.Normal)
             {
                 return " X ";
             }
-            // 투구가 하나일 때는 콤마를 붙여 대기 상태 암시 ("8,")
             return $"{displaySymbols[0]},";
         }
 
