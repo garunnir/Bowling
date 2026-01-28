@@ -7,8 +7,32 @@
 - **Game (Presenter):** 사용자 입력을 받아 모델을 갱신하고, 그 결과를 뷰에 전달하는 중재자입니다.
 - **StandardScoreCalculator (Model):** 볼링의 점수 계산 규칙을 보유한 순수 로직 모듈입니다. 상태를 저장하지 않고 입력에 대한 결과만 반환합니다.
 - **ConsoleScoreRenderer (View):** Presenter가 전달한 데이터(DTO)를 수동적으로 출력하는 역할만 수행합니다. 모델(계산기)에 대해 전혀 알지 못합니다.
+```mermaid
+classDiagram
+    class Game {
+        <<Presenter>>
+        +KnockDownPins(int pins)
+    }
+    class IScoreCalculator {
+        <<Model Interface>>
+        +Calculate(rolls)
+    }
+    class IScoreBoardRenderer {
+        <<View Interface>>
+        +Render(frames)
+    }
+    class ScoreFrameDTO {
+        +FrameNumber
+        +Rolls
+        +Type
+        +ErrorMessage
+    }
 
-![diagram (2).jpg](attachment:248cbb21-d5c9-4ebd-8549-a787e69825c7:diagram_(2).jpg)
+    Game --> IScoreCalculator : 1. Request Data
+    Game --> IScoreBoardRenderer : 2. Push Data
+    IScoreCalculator ..> ScoreFrameDTO : Creates
+    IScoreBoardRenderer ..> ScoreFrameDTO : Consumes
+```
 
 ### 결정 이유
 
@@ -26,8 +50,32 @@
 1. **가상 실행:** 입력값을 즉시 저장하지 않고 임시 리스트에 추가하여 계산기(`Calculator`)를 돌려봅니다.
 2. **검증:** 계산기가 반환한 결과(`DTO`)에 에러 플래그가 있다면 입력을 즉시 폐기(Discard)합니다.
 3. **커밋:** 에러가 없을 때만 내부 저장소에 반영하고 화면을 갱신합니다.
+```mermaid    
+sequenceDiagram
+    actor User
+    participant Game
+    participant Calculator
+    participant Renderer
+
+    User->>Game: 1. 핀 입력 (KnockDownPins)
     
-    ![diagram (1).jpg](attachment:1ab6206c-9be0-4341-81bd-1dbc149159f6:diagram_(1).jpg)
+    %% 1. 가상 실행 단계
+    Note over Game: [가상 실행] 임시 리스트 생성
+    Game->>Calculator: Calculate(tempRolls)
+    Calculator-->>Game: 결과 반환 (DTO List)
+
+    %% 2. 검증 단계
+    Note over Game: [검증] 결과 DTO 확인
+    
+    alt DTO에 에러가 있는 경우
+        Game->>User: ❌ 에러 로그 출력
+        Note over Game: [Rollback] 저장하지 않고 종료
+    else 에러가 없는 경우
+        Game->>Game: ✅ _rolls.Add(pin) [Commit]
+        Game->>Renderer: Render(DTOs)
+        Renderer-->>User: 점수판 출력
+    end
+```
     
 
 > Effect: 잘못된 데이터가 게임의 상태를 오염시키는 것을 원천적으로 차단하여 데이터 무결성을 보장합니다.
@@ -43,7 +91,29 @@
 
 볼링의 규칙을 단순 분기문(`if-else`)이 아닌, **"주어진 기회(Max Tries) 안에 핀(Current Pins)을 모두 제거하는 것"**이라는 일반화된 모델로 추상화하여 구현했습니다.
 
-![diagram.jpg](attachment:d9f5ebe9-0ba9-4d36-ab49-4ed6f2fc7f9c:diagram.jpg)
+```mermaid
+graph TD
+    Start[입력 데이터 처리] --> CheckFrame{프레임 확인}
+    
+    CheckFrame -->|1 ~ 9 Frame| NormalLogic[일반 프레임 로직]
+    CheckFrame -->|Last Frame| FinalLogic[마지막 프레임 로직]
+    
+    subgraph "Normal Frame Logic"
+    NormalLogic --> N_Resource[자원: 기회 2번]
+    N_Resource --> N_Task{핀 클리어 여부}
+    N_Task -->|Yes & 기회 남음| Strike[Strike: 효율적 성공]
+    N_Task -->|Yes & 기회 소진| Spare[Spare: 성공]
+    N_Task -->|No & 기회 소진| Open[Open: 실패]
+    end
+    
+    subgraph "Final Frame Logic"
+    FinalLogic --> F_Resource[자원: 기회 3번]
+    F_Resource --> F_Check{핀 클리어 여부}
+    F_Check -->|Yes| Reset[핀 리셋 & 보너스 기회 획득]
+    F_Check -->|No| F_End[기회 종료]
+    end
+
+```
 
 ### 3.2. 프레임 처리 로직의 격리 (Isolation)
 
